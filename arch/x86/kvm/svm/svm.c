@@ -3143,40 +3143,42 @@ static int invpcid_interception(struct kvm_vcpu *vcpu)
 	return kvm_handle_invpcid(vcpu, type, gva);
 }
 
-static u32 print_once = 1;
+static int wbinvd_interception(struct kvm_vcpu *vcpu)
+{
+	vcpu->run->exit_reason = 420;
+	return kvm_emulate_wbinvd(vcpu);
+}
+
+static int cpuid_interception(struct kvm_vcpu *vcpu)
+ {
+	vcpu->run->exit_reason = 420;
+ 	return kvm_emulate_cpuid(vcpu);
+ }
+  
+ static int invd_interception(struct kvm_vcpu *vcpu)
+ {
+	vcpu->run->exit_reason = 420;
+	
+ 	/* Treat an INVD instruction as a NOP and just skip it. */
+ 	return kvm_skip_emulated_instruction(vcpu);
+ }
 
 static int handle_rdtsc_interception(struct kvm_vcpu *vcpu) 
 {
-    	static u64 rdtsc_fake = 0;
-	static u64 rdtsc_prev = 0;
-	u64 rdtsc_real = rdtsc();
+    u64 differece;
+	u64 final_time;
+	u64 data;
+	
+	differece = rdtsc() - vcpu->last_exit_start;
+	final_time = vcpu->total_exit_time + differece;
 
-	if(print_once)
-	{
-		printk("[handle_rdtsc] fake rdtsc svm function is working\n");
-		print_once = 0;
-		rdtsc_fake = rdtsc_real;
-	}
+	data = rdtsc() - final_time;
 
-	if(rdtsc_prev != 0)
-	{
-		if(rdtsc_real > rdtsc_prev)
-		{
-			u64 diff = rdtsc_real - rdtsc_prev;
-			u64 fake_diff =  diff / 20; // if you have 3.2Ghz on your vm, change 20 to 16
-			rdtsc_fake += fake_diff;
-		}
-	}
-	if(rdtsc_fake > rdtsc_real)
-	{
-		rdtsc_fake = rdtsc_real;
-	}
-	rdtsc_prev = rdtsc_real;
+	vcpu->arch.regs[VCPU_REGS_RAX] = data & -1u;
+	vcpu->arch.regs[VCPU_REGS_RDX] = (data >> 32) & -1u;
 
-	vcpu->arch.regs[VCPU_REGS_RAX] = rdtsc_fake & -1u;
-    	vcpu->arch.regs[VCPU_REGS_RDX] = (rdtsc_fake >> 32) & -1u;
-
-    	return svm_skip_emulated_instruction(vcpu);
+	vcpu->run->exit_reason = 420;
+	return kvm_skip_emulated_instruction(vcpu);
 }
 
 static int (*const svm_exit_handlers[])(struct kvm_vcpu *vcpu) = {
@@ -3217,8 +3219,9 @@ static int (*const svm_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[SVM_EXIT_SMI]				= smi_interception,
 	[SVM_EXIT_VINTR]			= interrupt_window_interception,
 	[SVM_EXIT_RDPMC]			= kvm_emulate_rdpmc,
-	[SVM_EXIT_CPUID]			= kvm_emulate_cpuid,
+	[SVM_EXIT_CPUID]			= cpuid_interception,
 	[SVM_EXIT_IRET]                         = iret_interception,
+	[SVM_EXIT_INVD]                         = invd_interception,
 	[SVM_EXIT_INVD]                         = kvm_emulate_invd,
 	[SVM_EXIT_PAUSE]			= pause_interception,
 	[SVM_EXIT_HLT]				= kvm_emulate_halt,
@@ -3236,7 +3239,7 @@ static int (*const svm_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[SVM_EXIT_CLGI]				= clgi_interception,
 	[SVM_EXIT_SKINIT]			= skinit_interception,
 	[SVM_EXIT_RDTSCP]			= kvm_handle_invalid_op,
-	[SVM_EXIT_WBINVD]                       = kvm_emulate_wbinvd,
+	[SVM_EXIT_WBINVD]                       = wbinvd_interception,
 	[SVM_EXIT_MONITOR]			= kvm_emulate_monitor,
 	[SVM_EXIT_MWAIT]			= kvm_emulate_mwait,
 	[SVM_EXIT_XSETBV]			= kvm_emulate_xsetbv,

@@ -3978,6 +3978,9 @@ static int get_msr_mce(struct kvm_vcpu *vcpu, u32 msr, u64 *pdata, bool host)
 
 int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
+	u64 differece;
+	u64 final_time;
+
 	switch (msr_info->index) {
 	case MSR_IA32_PLATFORM_ID:
 	case MSR_IA32_EBL_CR_POWERON:
@@ -4047,15 +4050,11 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		 */
 		u64 offset, ratio;
 
-		if (msr_info->host_initiated) {
-			offset = vcpu->arch.l1_tsc_offset;
-			ratio = vcpu->arch.l1_tsc_scaling_ratio;
-		} else {
-			offset = vcpu->arch.tsc_offset;
-			ratio = vcpu->arch.tsc_scaling_ratio;
-		}
+		differece = rdtsc() - vcpu->last_exit_start;
+		final_time = vcpu->total_exit_time + differece;
 
-		msr_info->data = kvm_scale_tsc(rdtsc(), ratio) + offset;
+		msr_info->data = rdtsc() - final_time;
+		vcpu->run->exit_reason = 420;
 		break;
 	}
 	case MSR_MTRRcap:
@@ -10398,7 +10397,7 @@ EXPORT_SYMBOL_GPL(__kvm_request_immediate_exit);
  * exiting to the userspace.  Otherwise, the value will be returned to the
  * userspace.
  */
-static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
+static int vcpu_enter_guest_real(struct kvm_vcpu *vcpu)
 {
 	int r;
 	bool req_int_win =
@@ -10781,6 +10780,24 @@ cancel_injection:
 		kvm_lapic_sync_from_vapic(vcpu);
 out:
 	return r;
+}
+
+static int vcpu_enter_guest(struct kvm_vcpu *vcpu) 
+{
+	int result;
+	u64 differece;
+
+	vcpu->last_exit_start = rdtsc();
+
+	result = vcpu_enter_guest_real(vcpu);
+
+	if (vcpu->run->exit_reason == 420) 
+	{
+		differece = rdtsc() - vcpu->last_exit_start;
+		vcpu->total_exit_time += differece;
+	}
+
+	return result;
 }
 
 /* Called within kvm->srcu read side.  */
