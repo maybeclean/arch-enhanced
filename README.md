@@ -1,6 +1,3 @@
-# arch-enhanced
-Latest Arch Kernel (6.3.7 as of 6/10/23) with pcie acs overrides and RDTSC patches meant for KVM use.
-
 # Arch Enhanced (Mainly for VMs)
 
 This is a modified version of the latest Arch Kernel as of 6/10/23 (6.3.7) which has patches in place to bypass vmexit detections by modifying RDTSC and with enableable PCIE ACS Overrides to bypass cases of unwanted IOMMU Grouping.
