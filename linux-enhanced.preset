@@ -1,0 +1,10 @@
+# mkinitcpio preset file for the 'linux-enhanced' package
+
+ALL_kver="/boot/vmlinuz-linux-enhanced"
+ALL_microcode=(/boot/*-ucode.img)
+
+PRESETS=('default' 'fallback')
+
+default_image="/boot/initramfs-linux-enhanced.img"
+fallback_image="/boot/initramfs-linux-enhanced-fallback.img"
+fallback_options="-S autodetect"
