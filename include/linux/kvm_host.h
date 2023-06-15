@@ -366,9 +366,10 @@ struct kvm_vcpu {
 	sigset_t sigset;
 	unsigned int halt_poll_ns;
 	bool valid_wakeup;
+
 	u64 last_exit_start;
 	u64 total_exit_time;
-	
+
 #ifdef CONFIG_HAS_IOMEM
 	int mmio_needed;
 	int mmio_read_completed;
